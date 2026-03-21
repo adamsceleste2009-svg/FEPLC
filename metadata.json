@@ -1,0 +1,5 @@
+{
+  "name": "Ballon d'Or FECOB",
+  "description": "Application intelligente de génération du gagnant du Ballon d'Or FECOB basée sur l'analyse statistique et l'IA.",
+  "requestFramePermissions": []
+}
