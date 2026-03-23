@@ -7,14 +7,28 @@ export async function getAIAnalysis(teams: TeamStats[], weights: TournamentWeigh
 
   const ai = new GoogleGenAI({ apiKey });
   
+  // Use a more compact data representation to save tokens and reduce complexity
+  const compactTeams = teams.map(t => ({
+    n: t.name,
+    g: t.globalGoals,
+    fp: t.fairPlay,
+    lm: t.ligueMajeure.enabled ? { r: t.ligueMajeure.ranking, s: t.ligueMajeure.goalsScored, c: t.ligueMajeure.goalsConceded } : 'off',
+    lc: t.ligueChampions.enabled ? { p: t.ligueChampions.knockoutPhase, w: t.ligueChampions.won } : 'off',
+    pl: t.powerLeague.enabled ? { p: t.powerLeague.knockoutPhase } : 'off'
+  }));
+
   const prompt = `
     Analyse les résultats du Ballon d'Or FECOB.
     
-    Données: ${JSON.stringify(teams)}
-    Pondérations: ${JSON.stringify(weights)}
-    Scores: ${JSON.stringify(scores)}
+    Données: ${JSON.stringify(compactTeams)}
+    Scores: ${JSON.stringify(scores.map(s => ({ n: s.teamName, p: s.percentage.toFixed(1) })))}
     
-    Gagnant: ${scores[0]?.teamName} (${scores[0]?.percentage.toFixed(2)}%).
+    Génère un résumé global et un insight pour chaque équipe.
+    
+    RÈGLES:
+    1. Réponds UNIQUEMENT au format JSON.
+    2. N'utilise JAMAIS de guillemets doubles (") à l'intérieur des textes.
+    3. Sois concis pour éviter la troncature.
   `;
 
   try {
@@ -22,20 +36,37 @@ export async function getAIAnalysis(teams: TeamStats[], weights: TournamentWeigh
       model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
-        systemInstruction: "Tu es un expert en analyse sportive. Sois concis et professionnel. Fournis un résumé global et un insight par équipe.",
+        systemInstruction: "Tu es un expert en analyse sportive. Réponds UNIQUEMENT avec un objet JSON valide. Sois bref et précis. Ne tronque jamais ta réponse.",
         responseMimeType: "application/json",
         responseSchema: AI_ANALYSIS_SCHEMA,
-        maxOutputTokens: 1000, // Prevent runaway generation
       },
     });
 
     const text = response.text.trim();
-    // Handle potential markdown code blocks if the model ignores responseMimeType
-    const jsonStr = text.startsWith('```json') 
-      ? text.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-      : text;
+    
+    try {
+      return JSON.parse(text);
+    } catch (parseError) {
+      console.error("JSON parse failed. Raw text:", text);
+      
+      // Attempt to fix common truncation by closing brackets if they seem missing
+      let fixedText = text;
+      if (!fixedText.endsWith('}')) {
+        // Very basic heuristic to close a truncated JSON object
+        if (fixedText.includes('"insights":[')) {
+          if (!fixedText.endsWith(']')) fixedText += ']}';
+          else fixedText += '}';
+        } else {
+          fixedText += '}';
+        }
+      }
 
-    return JSON.parse(jsonStr);
+      try {
+        return JSON.parse(fixedText);
+      } catch (e) {
+        return null;
+      }
+    }
   } catch (error) {
     console.error("AI Analysis Error:", error);
     return null;

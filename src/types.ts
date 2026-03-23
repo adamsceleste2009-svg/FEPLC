@@ -3,7 +3,7 @@ import { Type } from "@google/genai";
 export type FairPlay = 'Faible' | 'Moyen' | 'Plein';
 export type Availability = 25 | 50 | 75 | 100;
 export type RankingGroup = '1-4' | '5-10' | '11-14' | '15-16';
-export type KnockoutPhase = 'Aucune' | 'Quart' | 'Demi' | 'Finale';
+export type KnockoutPhase = 'Aucune' | '8ème' | 'Quart' | 'Demi' | 'Finale';
 
 export interface LigueMajeureStats {
   enabled: boolean;
@@ -32,7 +32,7 @@ export interface SupercoupeStats {
 export interface PowerLeagueStats {
   enabled: boolean;
   groupPhase: boolean;
-  knockoutPhase: boolean;
+  knockoutPhase: KnockoutPhase;
   goalsScored: number;
   goalsConceded: number;
   availability: Availability;
